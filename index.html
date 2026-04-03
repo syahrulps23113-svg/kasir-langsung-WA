@@ -1,71 +1,235 @@
-
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Kasir Print</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kasir Printing</title>
 
-<style>
-body {
-  font-family: Arial;
-  background: #f5f5f5;
-  padding: 20px;
-}
+    <style>
+    body{
+      font-family:Arial;
+      padding:15px;
+      background:#f5f5f5;
+      margin:0;
+    }
 
-.container {
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  max-width: 400px;
-  margin: auto;
-}
+    .card{
+      background:white;
+      padding:15px;
+      border-radius:10px;
+      box-shadow:0 4px 10px rgba(0,0,0,0.1);
+      margin-bottom:15px;
+    }
 
-input, select, button {
-  width: 100%;
-  padding: 10px;
-  margin-top: 10px;
-}
+    /* penting supaya tidak melebar */
+    *{
+      box-sizing:border-box;
+    }
 
-button {
-  background: green;
-  color: white;
-  border: none;
-  cursor: pointer;
-}
+    html, body{
+      overflow-x:hidden;
+    }
 
-button:hover {
-  background: darkgreen;
-}
-</style>
+    /* baris produk */
+    .row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      margin-bottom:8px;
+      width:100%;
+    }
 
+    /* di HP semua turun ke bawah */
+    .row select,
+    .row input{
+      width:100%;
+    }
+
+    /* tampilan umum input */
+    select, input{
+      padding:12px;
+      font-size:16px;
+      border-radius:6px;
+      border:1px solid #ddd;
+    }
+
+    /* tombol */
+    button{
+      width:100%;
+      padding:15px;
+      font-size:18px;
+      background:#211a9b;
+      color:white;
+      border:none;
+      border-radius:8px;
+      margin-top:10px;
+    }
+
+    .resetBtn{
+      background:#999;
+    }
+
+    .totalBox{
+      font-size:30px;
+      font-weight:bold;
+      text-align:center;
+      margin:15px 0;
+      color:#211a9b;
+    }
+
+    /* tampilan di layar besar (laptop) */
+    @media(min-width:600px){
+
+      .row{
+        flex-wrap:nowrap;
+      }
+
+      .row select{
+        flex:2;
+      }
+
+      .row input{
+        flex:1;
+      }
+
+    }
+    </style>
 </head>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js');
+}
+</script>
+
 <body>
 
-<div class="container">
-  <h2>Kasir Print</h2>
-
-  <!-- INPUT -->
-  <input type="text" id="nama" list="listNama" placeholder="Nama Pelanggan">
+<div class="card">
+  <h3>Nama Pelanggan</h3>
+  <input type="text" id="nama" list="listNama" style="width:100%;" placeholder="Ketik atau pilih nama">
   <datalist id="listNama"></datalist>
+</div>
 
-  <input type="text" id="nomor" list="listNomor" placeholder="Nomor WhatsApp">
+<div class="card">
+  <h3>Nomor WhatsApp</h3>
+  <input type="text" id="nomor" list="listNomor" style="width:100%;" placeholder="Ketik atau pilih nomor">
   <datalist id="listNomor"></datalist>
+</div>
 
-  <input type="number" id="jumlah" placeholder="Jumlah Lembar">
+<div class="card">
+<h3>Produk</h3>
 
-  <select id="jenis">
-    <option value="Hitam Putih">Hitam Putih</option>
-    <option value="Warna">Warna</option>
-  </select>
+<div id="produkList"></div>
 
-  <button onclick="kirim()">Simpan & Kirim WA</button>
+<button onclick="tambahBaris()">+ Tambah Produk</button>
+
+<div class="totalBox">
+Rp <span id="totalSemua">0</span>
+</div>
+
+<label>Pembayaran</label>
+<select id="pembayaran" style="width:100%;">
+<option>Tunai</option>
+<option>E-money</option>
+</select>
+
+<label style="display:block;margin-top:10px;">
+  <input type="checkbox" id="kirimWA"> Kirim ke WhatsApp
+</label>
+
+<button onclick="kirim()">Simpan Transaksi</button>
+<button class="resetBtn" onclick="resetKasir()">Reset</button>
+
 </div>
 
 <script>
 
-// 🔥 LOAD HISTORY PELANGGAN
-function loadPelanggan(){
-  let data = JSON.parse(localStorage.getItem("pelanggan")) || [];
+function formatRupiah(angka){
+  return new Intl.NumberFormat("id-ID").format(angka);
+}
+
+function hargaProduk(jenis){
+  if(jenis=="Hitam Putih") return 250;
+  if(jenis=="Warna") return 1000;
+  if(jenis=="Full Warna") return 1500;
+  return 0;
+}
+
+function tambahBaris(){
+
+  let div = document.createElement("div");
+  div.className="row";
+
+  div.innerHTML = `
+  <select onchange="updateTotal()">
+    <option>Hitam Putih</option>
+    <option>Warna</option>
+    <option>Full Warna</option>
+  </select>
+
+  <input type="number" placeholder="Jumlah" oninput="updateTotal()">
+
+  <input type="text" placeholder="Total" readonly>
+  `;
+
+  document.getElementById("produkList").appendChild(div);
+}
+
+function updateTotal(){
+
+  let rows = document.querySelectorAll("#produkList .row");
+  let totalSemua = 0;
+
+  rows.forEach(row=>{
+    let jenis = row.children[0].value;
+    let unit = parseInt(row.children[1].value) || 0;
+
+    let harga = hargaProduk(jenis);
+    let total = harga * unit;
+
+    row.children[2].value = formatRupiah(total);
+    totalSemua += total;
+  });
+
+  document.getElementById("totalSemua").innerText = formatRupiah(totalSemua);
+}
+
+/* =========================
+   RIWAYAT PELANGGAN
+   ========================= */
+
+function ambilHistoryPelanggan(){
+  try{
+    return JSON.parse(localStorage.getItem("pelangganHistory")) || [];
+  }catch(e){
+    return [];
+  }
+}
+
+function simpanPelangganKeHistory(nama, nomor){
+  nama = (nama || "").trim();
+  nomor = (nomor || "").trim();
+
+  if(!nama || !nomor) return;
+
+  let data = ambilHistoryPelanggan();
+
+  let indexSamaNomor = data.findIndex(p => p.nomor === nomor);
+  let indexSamaNama = data.findIndex(p => p.nama.toLowerCase() === nama.toLowerCase());
+
+  if(indexSamaNomor >= 0){
+    data[indexSamaNomor] = { nama, nomor };
+  }else if(indexSamaNama >= 0){
+    data[indexSamaNama] = { nama, nomor };
+  }else{
+    data.push({ nama, nomor });
+  }
+
+  localStorage.setItem("pelangganHistory", JSON.stringify(data));
+}
+
+function loadHistoryOptions(){
+  let data = ambilHistoryPelanggan();
 
   let listNama = document.getElementById("listNama");
   let listNomor = document.getElementById("listNomor");
@@ -74,118 +238,146 @@ function loadPelanggan(){
   listNomor.innerHTML = "";
 
   data.forEach(p => {
-    listNama.innerHTML += `<option value="${p.nama}">`;
-    listNomor.innerHTML += `<option value="${p.nomor}">`;
+    let optNama = document.createElement("option");
+    optNama.value = p.nama;
+    listNama.appendChild(optNama);
+
+    let optNomor = document.createElement("option");
+    optNomor.value = p.nomor;
+    listNomor.appendChild(optNomor);
   });
 }
 
-// 🔥 SIMPAN PELANGGAN
-function simpanPelanggan(nama, nomor){
-  let data = JSON.parse(localStorage.getItem("pelanggan")) || [];
-
-  let sudahAda = data.find(p => p.nomor === nomor);
-
-  if(!sudahAda){
-    data.push({nama, nomor});
-    localStorage.setItem("pelanggan", JSON.stringify(data));
-  }
-}
-
-// 🔥 AUTO ISI NOMOR SAAT PILIH NAMA
-document.getElementById("nama").addEventListener("change", function(){
-  let data = JSON.parse(localStorage.getItem("pelanggan")) || [];
-  let namaDipilih = this.value;
-
-  let found = data.find(p => p.nama === namaDipilih);
-
+function autofillNomorDariNama(){
+  let nama = document.getElementById("nama").value.trim();
+  let data = ambilHistoryPelanggan();
+  let found = data.find(p => p.nama.toLowerCase() === nama.toLowerCase());
   if(found){
     document.getElementById("nomor").value = found.nomor;
   }
+}
+
+function autofillNamaDariNomor(){
+  let nomor = document.getElementById("nomor").value.trim();
+  let data = ambilHistoryPelanggan();
+  let found = data.find(p => p.nomor === nomor);
+  if(found){
+    document.getElementById("nama").value = found.nama;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+  loadHistoryOptions();
+
+  document.getElementById("nama").addEventListener("change", autofillNomorDariNama);
+  document.getElementById("nomor").addEventListener("change", autofillNamaDariNomor);
 });
 
-// 🔥 VALIDASI NOMOR
 function validasiNomor(nomor){
-  nomor = nomor.replace(/[^0-9]/g, "");
+  nomor = nomor.replace(/\s+/g, "");
+  return /^08[0-9]{8,11}$/.test(nomor);
+}
 
+function ubahNomorKe62(nomor){
+  nomor = nomor.replace(/\s+/g, "");
   if(nomor.startsWith("08")){
-    nomor = "62" + nomor.slice(1);
+    return "62" + nomor.slice(1);
   }
-
-  if(!nomor.startsWith("62")){
-    return false;
-  }
-
   return nomor;
 }
 
-// 🔥 FUNGSI KIRIM
 function kirim(){
 
-  let nama = document.getElementById("nama").value;
-  let nomor = document.getElementById("nomor").value;
-  let jumlah = document.getElementById("jumlah").value;
-  let jenis = document.getElementById("jenis").value;
-
-  if(!nama || !nomor || !jumlah){
-    alert("Lengkapi data dulu!");
-    return;
-  }
-
-  nomor = validasiNomor(nomor);
-  if(!nomor){
-    alert("Nomor tidak valid!");
-    return;
-  }
-
-  let harga = (jenis === "Warna") ? 500 : 200;
-  let total = jumlah * harga;
-
-  // 🔥 ID & WAKTU
-  let id = "TRX-" + Date.now();
+  let rows = document.querySelectorAll("#produkList .row");
+  let nama = document.getElementById("nama").value.trim() || "-";
+  let nomor = document.getElementById("nomor").value.trim();
+  let pembayaran = document.getElementById("pembayaran").value;
+  let kirimWA = document.getElementById("kirimWA").checked;
   let waktu = new Date().toLocaleString("id-ID");
+  let id = "TRX-" + Date.now();
 
-  // 🔥 FORMAT PESAN
-  let pesan = `
-🧾 STRUK PRINT
+  let totalSemua = 0;
+  let totalUnit = 0;
+  let detailProduk = "";
+
+  rows.forEach(row=>{
+
+    let produk = row.children[0].value;
+    let unit = parseInt(row.children[1].value) || 0;
+
+    if(unit == 0) return;
+
+    let harga = hargaProduk(produk);
+    let total = harga * unit;
+
+    totalSemua += total;
+    totalUnit += unit;
+
+    detailProduk += `- ${produk} (${unit} lembar)\n`;
+
+    fetch("https://script.google.com/macros/s/AKfycbzW-vozb6bFd03TrNLs5OWLFofUhyU99WTFPlvE0Kgx9aFbYLhzFGyTU-KFl9-aLTABwA/exec",{
+      method:"POST",
+      body:JSON.stringify({
+        id:id,
+        nama:nama,
+        nomor:nomor,
+        waktu:waktu,
+        produk:produk,
+        unit:unit,
+        harga:harga,
+        total:total,
+        pembayaran:pembayaran
+      })
+    });
+
+  });
+
+  simpanPelangganKeHistory(nama, nomor);
+  loadHistoryOptions();
+
+  if(kirimWA){
+
+    if(!validasiNomor(nomor)){
+      alert("Nomor tidak valid! Gunakan format 08xxxxxxxxxx");
+      return;
+    }
+
+    let nomorFix = ubahNomorKe62(nomor);
+
+    let pesan = `🧾 STRUK PRINT
 
 ID: ${id}
 Waktu: ${waktu}
 
 Nama: ${nama}
-Produk: ${jenis}
-Jumlah: ${jumlah} lembar
 
-💰 Total: Rp${total}
+📄 Detail Produk:
+${detailProduk}
+📊 Total: ${totalUnit} lembar
+💰 Total Bayar: Rp${formatRupiah(totalSemua)}
 
-Terima kasih 🙏
-`;
+Pembayaran: ${pembayaran}
 
-  // 🔥 SIMPAN KE HISTORY
-  simpanPelanggan(nama, nomor);
+Terima kasih 🙏`;
 
-  // 🔥 KIRIM KE WHATSAPP
-  let url = `https://wa.me/${nomor}?text=${encodeURIComponent(pesan)}`;
-  window.open(url, "_blank");
+    let url = `https://wa.me/${nomorFix}?text=${encodeURIComponent(pesan)}`;
+    window.open(url, "_blank");
+  }
 
-  // 🔥 KIRIM KE SPREADSHEET (GANTI URL KAMU)
-  fetch("https://script.google.com/macros/s/AKfycbwDTDKHb026zCgpYBHGLVXogryI7yK2iUfRXbU4qbGyk1qXdslYenGfBXfIw5aCk1JbMQ/exec", {
-    method: "POST",
-    body: JSON.stringify({
-      id,
-      waktu,
-      nama,
-      nomor,
-      jenis,
-      jumlah,
-      total
-    })
-  });
-
-  alert("Transaksi berhasil!");
+  alert("Transaksi tersimpan");
+  resetKasir();
 }
 
-// 🔥 LOAD SAAT HALAMAN DIBUKA
-loadPelanggan();
+function resetKasir(){
+  document.getElementById("produkList").innerHTML = "";
+  document.getElementById("nama").value = "";
+  document.getElementById("nomor").value = "";
+  document.getElementById("totalSemua").innerText = "0";
+  tambahBaris();
+}
+
+tambahBaris();
+loadHistoryOptions();
 
 </script>
 
