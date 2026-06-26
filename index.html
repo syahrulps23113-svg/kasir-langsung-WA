@@ -2,6 +2,7 @@
 <html>
 <head>
 <link rel="manifest" href="manifest.json">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kasir Printing</title>
 
@@ -78,17 +79,12 @@ button{
 
 <div class="card">
 <h3>Nama Pelanggan</h3>
-<!-- TAMBAHAN -->
-<input type="text" id="nama" list="listNama">
-<datalist id="listNama"></datalist>
+<input type="text" id="nama">
 </div>
 
 <div class="card">
 <h3>Nomor WhatsApp</h3>
-<!-- TAMBAHAN -->
-<input type="text" id="nomor" list="listNomor" placeholder="08xxxx">
-<datalist id="listNomor"></datalist>
-
+<input type="text" id="nomor" placeholder="08xxxx">
 <label><input type="checkbox" id="kirimWA"> Kirim ke WhatsApp</label>
 </div>
 
@@ -116,60 +112,6 @@ Rp <span id="totalSemua">0</span>
 
 <script>
 
-// ================= TAMBAHAN (RIWAYAT) =================
-
-function getHistory(){
-  return JSON.parse(localStorage.getItem("historyPelanggan")) || [];
-}
-
-function saveHistory(nama, nomor){
-  if(!nama || !nomor) return;
-
-  let data = getHistory();
-
-  let exist = data.find(p => p.nomor === nomor);
-
-  if(!exist){
-    data.push({nama, nomor});
-    localStorage.setItem("historyPelanggan", JSON.stringify(data));
-  }
-}
-
-function loadHistory(){
-  let data = getHistory();
-
-  let listNama = document.getElementById("listNama");
-  let listNomor = document.getElementById("listNomor");
-
-  listNama.innerHTML = "";
-  listNomor.innerHTML = "";
-
-  data.forEach(p=>{
-    listNama.innerHTML += `<option value="${p.nama}">`;
-    listNomor.innerHTML += `<option value="${p.nomor}">`;
-  });
-}
-
-// auto isi nomor dari nama
-document.getElementById("nama").addEventListener("change", function(){
-  let data = getHistory();
-  let found = data.find(p => p.nama === this.value);
-  if(found){
-    document.getElementById("nomor").value = found.nomor;
-  }
-});
-
-// auto isi nama dari nomor
-document.getElementById("nomor").addEventListener("change", function(){
-  let data = getHistory();
-  let found = data.find(p => p.nomor === this.value);
-  if(found){
-    document.getElementById("nama").value = found.nama;
-  }
-});
-
-// =====================================================
-
 function formatRupiah(angka){
 return new Intl.NumberFormat("id-ID").format(angka);
 }
@@ -178,6 +120,9 @@ function hargaProduk(jenis){
 if(jenis=="Hitam Putih") return 250;
 if(jenis=="Warna") return 1000;
 if(jenis=="Full Warna") return 1500;
+if(jenis=="Foto Strip") return 3000;
+if(jenis=="Pass Foto 3x4") return 2000;
+if(jenis=="Pass Foto 4x6") return 2500;
 return 0;
 }
 
@@ -190,6 +135,9 @@ div.innerHTML = `
 <option>Hitam Putih</option>
 <option>Warna</option>
 <option>Full Warna</option>
+<option>Foto Strip</option>
+<option>Pass Foto 3x4</option>
+<option>Pass Foto 4x6</option>
 </select>
 
 <input type="number" placeholder="Jumlah" oninput="updateTotal()">
@@ -226,11 +174,6 @@ function kirim(){
 let rows = document.querySelectorAll("#produkList .row");
 let nama = document.getElementById("nama").value || "-";
 let nomor = document.getElementById("nomor").value;
-
-// TAMBAHAN SIMPAN HISTORY
-saveHistory(nama, nomor);
-loadHistory();
-
 let kirimWA = document.getElementById("kirimWA").checked;
 let pembayaran = document.getElementById("pembayaran").value;
 let waktu = new Date().toLocaleString("id-ID");
@@ -278,7 +221,7 @@ return;
 }
 
 let pesan =
-`🧾 STRUK PRINT PHYNIX CREATOR🐦‍🔥
+`🧾 STRUK PRINT
 
 ID: ${id}
 Waktu: ${waktu}
@@ -289,10 +232,9 @@ ${teksProduk}
 
 Jumlah: ${totalItem} lembar
 
+💰 Total: Rp${formatRupiah(totalSemua)}
 
-💰 Total: *Rp${formatRupiah(totalSemua)}*
-
-Terima kasih telah menggunakan jasa kami🙏`;
+Terima kasih 🙏`;
 
 let nomorFix = nomor.replace(/^0/, "62");
 let url = `https://wa.me/${nomorFix}?text=${encodeURIComponent(pesan)}`;
@@ -311,10 +253,8 @@ document.getElementById("totalSemua").innerText="0";
 tambahBaris();
 }
 
-// TAMBAHAN LOAD HISTORY SAAT AWAL
-loadHistory();
-
 tambahBaris();
+
 </script>
 
 </body>
